@@ -137,7 +137,7 @@ class TvTools(private val activity: Activity) {
      * 新拟态里「白」是最亮的一档材质，因此二维码不用描边也压得住深色弹窗，
      * 四周的柔光带同时也是二维码的静区（quiet zone），扫起来更稳。
      */
-    private fun qr(url: String): FrameLayout {
+    fun qr(url: String): FrameLayout {
         val bits=QRCodeWriter().encode(url,BarcodeFormat.QR_CODE,360,360)
         val pixels=IntArray(360*360) { i->if(bits[i%360,i/360]) Color.BLACK else Color.WHITE }
         val code=ImageView(activity).apply {
@@ -232,6 +232,30 @@ class TvTools(private val activity: Activity) {
                     if(dialog!==next) { session.close(); return@post }
                     phone=session; next.content.removeAllViews()
                     scanBody("手机扫码后用浏览器打开，粘贴 App 抓到的 x-tt-token（整段 Cookie 也可以）。\n只用于搜索请求；需连接同一局域网，关闭窗口即失效，最长 5 分钟。",session.url,next.content)
+                }
+            } catch(_: Exception) { main.post { if(dialog===next) status.text="无法开启手机填写，请检查网络后重试。" } }
+        }
+    }
+    /**
+     * 通用的「手机填写」（橘子版）：与「手机输入」同一份一次性局域网表单，收一行文字。
+     * 更新来源（owner/repo）与 GitHub token 这种长字串，在手机上打比用遥控器快得多。
+     */
+    fun phoneForm(anchor: View?,title: String,form: PhoneSearchServer.Form,instructions: String,save: (String)->Unit) {
+        val address=lanAddress()
+        if(address==null) {
+            info(title,"请让电视和手机连接同一局域网（Wi-Fi 或有线网络）后重试。",anchor); return
+        }
+        val next=TvDialog(activity,title)
+        next.button("关闭")
+        val status=label("正在生成二维码…"); next.content.addView(status)
+        open(next,anchor)
+        worker.execute {
+            try {
+                val session=PhoneSearchServer(address,{ value -> main.post { if(dialog===next) { next.dismiss(); save(value) } } },{ main.post { if(dialog===next) { next.content.removeAllViews(); next.content.addView(label("二维码已过期，请关闭后重新打开。")) } } },form=form,translate=phonePage)
+                main.post {
+                    if(dialog!==next) { session.close(); return@post }
+                    phone=session; next.content.removeAllViews()
+                    scanBody("$instructions\n需连接同一局域网；关闭窗口即失效，最长 5 分钟。",session.url,next.content)
                 }
             } catch(_: Exception) { main.post { if(dialog===next) status.text="无法开启手机填写，请检查网络后重试。" } }
         }

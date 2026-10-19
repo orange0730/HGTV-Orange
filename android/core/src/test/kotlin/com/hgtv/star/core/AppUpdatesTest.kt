@@ -13,7 +13,7 @@ class AppUpdatesTest {
     private fun sha256(bytes: ByteArray) =
         MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
-    private fun payload(bytes: ByteArray, versionCode: Long = 30, fileName: String = "HGTV_1.0.1.apk") = JSONObject()
+    private fun payload(bytes: ByteArray, versionCode: Long = 30, fileName: String = "HGTV-orange-1.0.1.apk") = JSONObject()
         .put("schema", 1)
         .put("packageName", AppUpdate.PACKAGE)
         .put("versionCode", versionCode)
@@ -28,8 +28,8 @@ class AppUpdatesTest {
         val bytes = ByteArray(4096) { (it % 251).toByte() }
         val update = AppUpdate.parse(payload(bytes))
         assertEquals(30L, update.versionCode)
-        assertEquals("HGTV_1.0.1.apk", update.fileName)
-        assertEquals("https://github.com/pan8664716/HGTV/releases/download/v1.0.1/HGTV_1.0.1.apk", update.downloadUrl)
+        assertEquals("HGTV-orange-1.0.1.apk", update.fileName)
+        assertEquals("https://github.com/orange0730/HGTV-Orange/releases/download/v1.0.1/HGTV-orange-1.0.1.apk", update.downloadUrl)
         assertTrue(update.newerThan(24, 26))
         assertFalse("同版本不算更新", update.newerThan(30, 26))
         assertFalse("更高 minSdk 不算可用更新", update.newerThan(24, 25))
@@ -46,9 +46,9 @@ class AppUpdatesTest {
             "版本名带空格" to JSONObject(payload(bytes)).put("versionName", "1.0.1 beta").toString(),
             "tag 前缀不对" to JSONObject(payload(bytes)).put("tag", "kotlin-v1.0.1").toString(),
             "安装包名不是本仓库命名" to payload(bytes, fileName = "app-release.apk"),
-            "安装包名带路径" to payload(bytes, fileName = "../HGTV_1.0.1.apk"),
+            "安装包名带路径" to payload(bytes, fileName = "../HGTV-orange-1.0.1.apk"),
             "校验值不是 64 位十六进制" to JSONObject(payload(bytes))
-                .put("apk", JSONObject().put("name", "HGTV_1.0.1.apk").put("size", bytes.size).put("sha256", "abc")).toString(),
+                .put("apk", JSONObject().put("name", "HGTV-orange-1.0.1.apk").put("size", bytes.size).put("sha256", "abc")).toString(),
             "缺少 apk 段" to JSONObject(payload(bytes)).remove("apk").toString()
         )
         bad.forEach { (why, json) ->
@@ -125,5 +125,69 @@ class AppUpdatesTest {
         val bytes = ByteArray(64)
         val long = JSONObject(payload(bytes)).put("notes", "x".repeat(5000)).toString()
         assertEquals(AppUpdate.MAX_NOTES, AppUpdate.parse(long).notes.length)
+    }
+
+    @Test fun `download url follows the configured repository`() {
+        val bytes = ByteArray(32)
+        val update = AppUpdate.parse(payload(bytes), repository = "someone/fork")
+        assertEquals("https://github.com/someone/fork/releases/download/v1.0.1/HGTV-orange-1.0.1.apk", update.downloadUrl)
+    }
+
+    private fun asset(name: String, size: Long = 100) = JSONObject()
+        .put("name", name).put("size", size)
+        .put("url", "https://api.github.com/repos/o/r/releases/assets/$name")
+        .put("browser_download_url", "https://github.com/o/r/releases/download/x/$name")
+
+    private fun release(tag: String, prerelease: Boolean = false, draft: Boolean = false, apk: String? = "HGTV-orange-${tag.removePrefix("v")}.apk", metadata: Boolean = true, body: Any? = "## 新增\n- 繁體介面") =
+        JSONObject().put("tag_name", tag).put("name", JSONObject.NULL).put("published_at", "2026-10-20T08:00:00Z")
+            .put("prerelease", prerelease).put("draft", draft).put("body", body ?: JSONObject.NULL)
+            .put("assets", org.json.JSONArray().apply {
+                if (apk != null) put(asset(apk))
+                if (metadata) put(asset("update.json"))
+            })
+
+    @Test fun `release list keeps only real app releases`() {
+        val json = org.json.JSONArray()
+            .put(release("v2.1.0", prerelease = true))
+            .put(release("v2.0.1"))
+            .put(release("v2.0.0-draft", draft = true))
+            .put(release("v1.9.0", apk = "app-release.apk"))
+            .put(release("v1.8.0", metadata = false))
+            .put(release("v1.7.0", body = null))
+            .toString()
+        val entries = ReleaseList.parse(json)
+        assertEquals(listOf("v2.1.0", "v2.0.1", "v1.7.0"), entries.map { it.tag })
+        val first = entries.first()
+        assertTrue(first.prerelease)
+        assertEquals("v2.1.0", first.title)
+        assertEquals("2026-10-20", first.date)
+        assertEquals("新增", first.summary)
+        assertEquals("HGTV-orange-2.1.0.apk", first.apkName)
+        assertEquals("https://github.com/o/r/releases/download/x/update.json", first.metadataUrl)
+        assertEquals("", entries.last().summary)
+    }
+
+    @Test fun `newest respects the update channel`() {
+        val entries = ReleaseList.parse(org.json.JSONArray().put(release("v2.1.0", prerelease = true)).put(release("v2.0.1")).toString())
+        assertEquals("v2.0.1", ReleaseList.newest(entries, UpdateChannel.STABLE)?.tag)
+        assertEquals("v2.1.0", ReleaseList.newest(entries, UpdateChannel.PREVIEW)?.tag)
+        assertNull(ReleaseList.newest(emptyList(), UpdateChannel.PREVIEW))
+    }
+
+    @Test fun `summary strips markdown and caps length`() {
+        assertEquals("修好播放", ReleaseList.summary("\n\n### 修好播放\n其他"))
+        assertEquals("x".repeat(ReleaseList.MAX_SUMMARY) + "…", ReleaseList.summary("x".repeat(200)))
+    }
+
+    @Test fun `update source validates repository and token`() {
+        assertEquals("orange0730/HGTV-Orange", UpdateSource().repository)
+        assertFalse(UpdateSource().usesToken)
+        assertTrue(UpdateSource("a/b", token = "ghp_abc").usesToken)
+        listOf("", "noslash", "a/b/c", "a b/c", "../x", "a/..").forEach { bad ->
+            try { UpdateSource(bad); fail("应当拒绝仓库：$bad") } catch (expected: IllegalArgumentException) { }
+        }
+        try { UpdateSource("a/b", token = "has space"); fail("token 不能有空白") } catch (expected: IllegalArgumentException) { }
+        assertEquals(UpdateChannel.STABLE, UpdateChannel.from(null))
+        assertEquals(UpdateChannel.PREVIEW, UpdateChannel.from("preview"))
     }
 }

@@ -714,7 +714,7 @@ class MainActivity: Activity() {
         connectivity=getSystemService(ConnectivityManager::class.java)
         runCatching { connectivity.registerDefaultNetworkCallback(networkCallback); networkRegistered=true }
         favoriteMonitor=FavoriteMonitor(library,repository) { refreshFavoriteLabels() }
-        appUpdater=AppUpdater(this) {
+        appUpdater=AppUpdater(this,{ url -> tvTools.qr(url) }) {
             // 「空闲」= 在前台、不在播放界面、没有模态框。播放中与弹窗里绝不打扰。
             foreground && screen!="player" && !tvTools.showing
         }

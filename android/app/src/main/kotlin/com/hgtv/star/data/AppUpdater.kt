@@ -16,6 +16,9 @@ import android.widget.TextView
 import androidx.core.content.FileProvider
 import com.hgtv.star.core.AppUpdate
 import com.hgtv.star.core.AppUpdateRepository
+import com.hgtv.star.core.ReleaseEntry
+import com.hgtv.star.core.UpdateChannel
+import com.hgtv.star.core.UpdateSource
 import com.hgtv.star.core.UpdateFiles
 import com.hgtv.star.core.UpdatePrompt
 import java.io.File
@@ -40,13 +43,34 @@ import com.hgtv.star.BuildConfig
  *   （`versionCode` 变了）才重新开始提示；设置里的手动检查始终可用。
  * - **播放中不打扰**：`screen == "player"` 或有弹窗时不发请求、不弹窗。
  * - **两道校验**：下载后先比 SHA-256，安装前再比「包名 / 版本 / 最低系统版本 / 签名」。
+ *
+ * 橘子版另外加了：
+ * - **选任一版本**（[showVersions]）：列出来源仓库的所有 Release，选较新的就照常下载安装；
+ *   选到较旧的，说明 Android 不允许直接降版，并给出那一版的下载二维码；
+ * - **可改来源**（[changeSource]）：仓库（owner/repo）、读私有仓库用的 token、
+ *   频道（只收正式版 / 连预览版也收），存在 `app_updates` 里。
  */
-class AppUpdater(private val activity: Activity, private val idle: () -> Boolean) {
+class AppUpdater(
+    private val activity: Activity,
+    /** 画二维码用（降版时给下载地址）；由 [com.hgtv.star.tv.TvTools.qr] 提供。 */
+    private val qrView: (String) -> View = { View(activity) },
+    private val idle: () -> Boolean
+) {
 
     private val main = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
-    private val repository = AppUpdateRepository()
     private val preferences = activity.getSharedPreferences("app_updates", Activity.MODE_PRIVATE)
+
+    /** 目前的更新来源；设定坏掉（理论上不会）时退回默认来源。 */
+    var source: UpdateSource = runCatching {
+        UpdateSource(
+            repository = preferences.getString("source_repo", null) ?: AppUpdate.REPOSITORY,
+            token = preferences.getString("source_token", null).orEmpty(),
+            channel = UpdateChannel.from(preferences.getString("source_channel", null))
+        )
+    }.getOrDefault(UpdateSource())
+        private set
+    @Volatile private var repository = AppUpdateRepository(source)
     private val apk = File(activity.cacheDir, "updates/update.apk")
 
     /** 自动检查的最小间隔：反复切前后台时不重复请求。 */
@@ -242,7 +266,8 @@ class AppUpdater(private val activity: Activity, private val idle: () -> Boolean
 
     // —— 后台任务 ——
 
-    private fun <T> work(action: () -> T, done: (T) -> Unit) {
+    /** [onError] 不为 null 时由呼叫端自己显示错误（版本清单这类不在状态弹窗里的流程）。 */
+    private fun <T> work(action: () -> T, onError: ((String) -> Unit)? = null, done: (T) -> Unit) {
         busy = true
         renderActions()
         val ticket = ++generation
@@ -252,7 +277,10 @@ class AppUpdater(private val activity: Activity, private val idle: () -> Boolean
                 main.post { if (active && generation == ticket) { busy = false; done(result); renderActions() } }
             } catch (e: Exception) {
                 main.post {
-                    if (active && generation == ticket) {
+                    if (active && generation == ticket && onError != null) {
+                        busy = false
+                        onError(if (e is IOException) e.message ?: "读取失败，请重试" else "读取失败，请重试")
+                    } else if (active && generation == ticket) {
                         busy = false
                         ready = false
                         retryAfter = System.currentTimeMillis() + failureBackoffMs
@@ -308,6 +336,113 @@ class AppUpdater(private val activity: Activity, private val idle: () -> Boolean
             dialog?.dismiss()
             install()
         }
+    }
+
+    // —— 橘子版：选任一版本、改来源 ——
+
+    /** 改更新来源；清掉已下载、已发现的新版，下次检查按新来源走。 */
+    fun changeSource(next: UpdateSource) {
+        interrupt()
+        source = next
+        preferences.edit()
+            .putString("source_repo", next.repository)
+            .putString("source_token", next.token)
+            .putString("source_channel", next.channel.storedValue)
+            .putLong("last_attempt", 0)
+            .apply()
+        val old = repository
+        repository = AppUpdateRepository(next)
+        Thread({ old.close() }, "hgtv-update-cleanup").start()
+        available = null
+        ready = false
+        retryAfter = 0
+        status = "当前版本 ${BuildConfig.VERSION_NAME}"
+        worker.execute { apk.delete() }
+    }
+
+    private fun notice(title: String, message: String, extra: View? = null) {
+        dialog?.dismiss()
+        val next = TvDialog(activity, title).message(message)
+        if (extra != null) next.content.addView(extra, LinearLayout.LayoutParams(-2, -2).apply { topMargin = activity.tvDp(TvStyle.GAP_BLOCK) })
+        next.button("知道了")
+        dialog = next
+        next.show(anchor) { if (dialog === next) dialog = null }
+    }
+
+    private fun waiting(title: String, message: String): TvDialog {
+        dialog?.dismiss()
+        val next = TvDialog(activity, title).message(message)
+        next.button("取消") { interrupt() }
+        dialog = next
+        next.show(anchor) { if (dialog === next) dialog = null }
+        return next
+    }
+
+    /** 一行清单文字：版本 · 日期 · 预览版 · 目前安装 · 说明第一行。 */
+    private fun label(entry: ReleaseEntry) = listOfNotNull(
+        entry.tag,
+        entry.date.ifEmpty { null },
+        if (entry.prerelease) "预览版" else null,
+        if (entry.tag.removePrefix("v") == BuildConfig.VERSION_NAME) "目前安装" else null,
+        entry.summary.ifEmpty { null }
+    ).joinToString("  ·  ")
+
+    /** 设置 → 「选择版本安装」：列出来源仓库的所有版本，选哪一版就装哪一版。 */
+    fun showVersions(from: View?) {
+        if (!active || busy) return
+        anchor = from
+        val wait = waiting("选择版本", "正在读取 ${source.repository} 的版本清单…")
+        work({ repository.releases() }, onError = { message -> if (dialog === wait) notice("无法读取版本清单", message) }) { entries ->
+            if (dialog !== wait) return@work
+            if (entries.isEmpty()) {
+                notice("没有可安装的版本", "${source.repository} 还没有发布过本应用的安装包（Release 里要有 HGTV-orange-*.apk 与 update.json）。")
+                return@work
+            }
+            wait.dismiss()
+            val list = TvDialog(activity, "选择版本 · ${source.repository}")
+                .message("目前安装 ${BuildConfig.VERSION_NAME}。选较新的版本会下载并交给系统安装；较旧的版本需要先卸载。", 14f, TvStyle.muted)
+                .choices(entries.map(::label)) { index -> pick(entries[index]) }
+            list.button("关闭")
+            dialog = list
+            list.show(from) { if (dialog === list) dialog = null }
+        }
+    }
+
+    private fun pick(entry: ReleaseEntry) {
+        val wait = waiting(entry.tag, "正在读取 ${entry.tag} 的更新信息…")
+        work({ repository.metadata(entry) }, onError = { message -> if (dialog === wait) notice("无法读取这个版本", message) }) { update ->
+            if (dialog !== wait) return@work
+            val installed = BuildConfig.VERSION_CODE.toLong()
+            when {
+                update.minSdk > Build.VERSION.SDK_INT ->
+                    notice("无法安装", "${update.versionName} 需要 Android API ${update.minSdk}，这台设备是 API ${Build.VERSION.SDK_INT}。")
+                update.versionCode == installed ->
+                    notice("已是这个版本", "${update.versionName} 就是目前安装的版本，不需要重新安装。")
+                update.versionCode < installed -> downgrade(update)
+                else -> {
+                    available = update
+                    ready = false
+                    status = "准备安装 ${update.versionName} · ${"%.1f".format(update.size / 1048576.0)} MB"
+                    openStatus(anchor, "取消", startDownload = true)
+                }
+            }
+        }
+    }
+
+    /**
+     * 选到较旧的版本：Android 不允许把已安装的应用直接覆盖成 versionCode 较小的版本，
+     * 只能先卸载（本机记录会一起清掉）再装旧版。这里说明清楚，并给出那一版的下载二维码，
+     * 用手机或电脑下载后再装到电视上。
+     */
+    private fun downgrade(update: AppUpdate) {
+        val privateHint = if (source.usesToken) "\n\n私有仓库的下载地址需要登录 GitHub 才能打开。" else ""
+        notice(
+            "无法直接降版",
+            "${update.versionName}（${update.versionCode}）比目前的 ${BuildConfig.VERSION_NAME}（${BuildConfig.VERSION_CODE}）旧。\n\n" +
+                "Android 不允许直接覆盖成旧版本：要先卸载本应用（收藏与观看记录会被清除，建议先用「手机备份与恢复」导出），再安装旧版。\n\n" +
+                "扫描二维码下载 ${update.fileName}：$privateHint",
+            qrView(update.downloadUrl)
+        )
     }
 
     /**

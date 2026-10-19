@@ -14,7 +14,11 @@ import java.util.concurrent.TimeUnit
 typealias WatchProgress = BackupProgress
 
 /** Memory-only UI access; disk reads, JSON serialization and commits run on workers. */
-class Library(context: Context) {
+/**
+ * [libraryFile]：這位使用者的記錄檔（橘子版的多使用者；預設使用者沿用 `native-library-v1`，
+ * 見 [Profiles.libraryFile]）。首頁快取與裝置身分整台共用，不跟著使用者走。
+ */
+class Library(context: Context, private val libraryFile: String = "native-library-v1") {
     private companion object {
         // A replacement Activity must not load before its predecessor's final checkpoint commits.
         val retiredWrites = mutableListOf<LatestWriteQueue<String, () -> Any?>>()
@@ -30,7 +34,7 @@ class Library(context: Context) {
     private val app = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
     private val loader = Executors.newSingleThreadExecutor { task -> Thread(task, "hgtv-library-load") }
-    private val prefs by lazy { app.getSharedPreferences("native-library-v1", Context.MODE_PRIVATE) }
+    private val prefs by lazy { app.getSharedPreferences(libraryFile, Context.MODE_PRIVATE) }
     private val homePrefs by lazy { app.getSharedPreferences("native-home-cache-v1", Context.MODE_PRIVATE) }
     /** 搜索登录态单独存一个文件：它不是播放偏好，也不进备份文件、不随记录一起迁移。 */
     private val sessionPrefs by lazy { app.getSharedPreferences("native-session-v1", Context.MODE_PRIVATE) }

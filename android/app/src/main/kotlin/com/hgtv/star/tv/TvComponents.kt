@@ -29,6 +29,20 @@ internal fun Context.softBand() = tvDp(TvStyle.SOFT_BAND)
 /** 大面板（弹窗、设置分组、播放器底座）的柔光带。 */
 internal fun Context.softBandLarge() = tvDp(TvStyle.SOFT_BAND_LARGE)
 
+/**
+ * 會自動轉繁簡的文字控件（橘子版）：全站所有顯示文字的 TextView 都從這裡來，
+ * `text = …` 時經過 [Zh.ui]。按鈕（[TvButton]）與選集格（[EpisodeCell]）也繼承它。
+ */
+internal open class ZhTextView(context: Context) : TextView(context) {
+    override fun setText(text: CharSequence?, type: BufferType?) {
+        super.setText(Zh.ui(text), type)
+    }
+
+    override fun setContentDescription(contentDescription: CharSequence?) {
+        super.setContentDescription(Zh.ui(contentDescription))
+    }
+}
+
 internal fun Context.tvText(
     value: String,
     size: Float,

@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.hgtv.star
 
+import com.hgtv.star.data.StatsStore
+import com.hgtv.star.data.SeriesStore
+import com.hgtv.star.data.Profiles
 import com.hgtv.star.tv.Zh
 import android.app.Activity
 import android.os.Bundle
@@ -400,6 +403,11 @@ class MainActivity: Activity() {
     internal val activityStarted=launchStarted
     internal var homeContentLogged=false
     internal lateinit var library: Library
+    /** 橘子版：使用者清單、目前使用者、這位使用者的每部劇設定與觀看統計。 */
+    internal lateinit var profiles: Profiles
+    internal lateinit var profile: com.hgtv.star.core.Profile
+    internal lateinit var seriesStore: SeriesStore
+    internal lateinit var stats: StatsStore
     internal lateinit var tvTools: TvTools
     internal lateinit var mediaSession: TvMediaSession
     /** 应用内更新：前台空闲时检查新版，下载校验后交给系统安装器。 */
@@ -673,6 +681,9 @@ class MainActivity: Activity() {
                 if(sleepTimer.poll()) stopForSleep()
                 if(hud.visibility==View.VISIBLE) updatePlaybackText()
                 maybePrefetch()
+                // 橘子版：觀看統計每秒累計一次；進到片尾就跳到結尾（見 skipOutro）。
+                if(player?.isPlaying==true) detail?.series?.let { stats.tick(it.id,it.title) }
+                skipOutro()
                 val now=android.os.SystemClock.elapsedRealtime()
                 if(player?.isPlaying==true && now-lastSaved>5000) { saveProgress(); lastSaved=now }
             }
@@ -700,7 +711,11 @@ class MainActivity: Activity() {
         // 低内存设备保留全部视觉层级，只关掉过渡动画、收紧柔光（投影更短更淡，生成也更快）。
         TvStyle.animate=getSystemService(android.app.ActivityManager::class.java)?.isLowRamDevice!=true
         Soft.quality=if(TvStyle.animate) 1f else .7f
-        library=Library(this); artwork=ArtworkLoader(this); tvTools=TvTools(this)
+        profiles=Profiles(this); profile=profiles.current()
+        seriesStore=SeriesStore(this,profile.id); stats=StatsStore(this,profile.id)
+        // 換語言 / 換使用者會重建畫面：重建完回到設定頁，而不是首頁。
+        if(intent.getBooleanExtra(EXTRA_OPEN_SETTINGS,false)) { intent.removeExtra(EXTRA_OPEN_SETTINGS); tab=TAB_SETTINGS }
+        library=Library(this,Profiles.libraryFile(profile.id)); artwork=ArtworkLoader(this); tvTools=TvTools(this)
         root=FrameLayout(this).apply { setBackgroundColor(bg); clipChildren=false; clipToPadding=false }
         setContentView(root)
         // 焦点回到页头（品牌 / 分类开关 / 顶部入口）时立刻展开，
@@ -855,7 +870,7 @@ class MainActivity: Activity() {
     override fun onPause() {
         foreground=false; main.removeCallbacks(tick); cancelRecovery(); cancelPrefetch(); mediaSession.deactivate(); appUpdater.pause()
         sleepTimer.cancel(); sleepChoice=0; favoriteMonitor.stop(); detailAutoplay=false; requestedAutoplay=false; pausedForLifecycle=true
-        player?.pause(); saveProgress(); library.flush(); super.onPause()
+        player?.pause(); saveProgress(); library.flush(); stats.flush(); super.onPause()
     }
     override fun onStop() {
         restoreStoppedPage=true; generation++; cancelWork(); tvTools.close()

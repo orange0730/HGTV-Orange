@@ -150,6 +150,9 @@ internal fun MainActivity.settings(parent: LinearLayout) {
     // ——这两个都是「从几档里选一档」，并排一行才能一眼比较；下面两条滑块（弹幕大小 / 弹幕透明度）
     // 各占一整行——连续量要把滑轨铺满整栏宽度，左端标签、右端百分比读数才排在同一列上，
     // 半屏宽里塞一条滑轨会挤到只剩两百来 dp，看着糙也不好看数。
+    // —— 橘子版：语言、使用者、选择版本、更新来源与频道、统计、片头片尾、关于（整栏宽、两格一行） ——
+    // 放在上面两列与弹幕栏之间；焦点出口在下面「焦点串联」那一段接上。
+    val orangeCells=orangeSettings(parent,::groupPanel,::heading)
     val danmaku=column().apply { clipChildren=false; clipToPadding=false }
     groupPanel(danmaku)
     parent.addView(danmaku,lp(-1,-2).apply { topMargin=dp(TvStyle.GAP_GROUP) })
@@ -340,13 +343,18 @@ internal fun MainActivity.settings(parent: LinearLayout) {
     val columns=listOf(playbackItems,deviceItems)
     columns.forEachIndexed { column,items -> items.forEachIndexed { index,view ->
         view.nextFocusUpId=items.getOrNull(index-1)?.id ?: (navEntry()?.id ?: View.NO_ID)
-        // 两列的末项（自动连播 / 开源许可）按下进弹幕那一栏的第一行，各接自己那一半。
-        view.nextFocusDownId=items.getOrNull(index+1)?.id ?: (if(column==0) danmakuSetting.id else danmakuSpeedSetting.id)
+        // 两列的末项（自动连播 / 开源许可）按下进「橘子版」那一栏的第一行，各接自己那一半。
+        view.nextFocusDownId=items.getOrNull(index+1)?.id ?: (orangeCells.getOrNull(column)?.id ?: (if(column==0) danmakuSetting.id else danmakuSpeedSetting.id))
     } }
+    // 「橘子版」那一栏：第一行往上回到两列的末项，最后一行往下进弹幕栏（与列号对齐）。
+    orangeCells.getOrNull(0)?.nextFocusUpId=autoNextButton.id
+    orangeCells.getOrNull(1)?.nextFocusUpId=license.id
+    orangeCells.getOrNull(orangeCells.size-2)?.nextFocusDownId=danmakuSetting.id
+    orangeCells.lastOrNull()?.nextFocusDownId=danmakuSpeedSetting.id
     // 弹幕那一栏：第一行左格上行回到「自动连播」、右格上行回到「开源许可」（与上面两列的末项对接），
     // 栏内其余的上下左右出口由 [syncDanmakuStyleRows] 按当前档位指（隐藏时那三行不占位）。
-    danmakuSetting.nextFocusUpId=autoNextButton.id
-    danmakuSpeedSetting.nextFocusUpId=license.id
+    danmakuSetting.nextFocusUpId=orangeCells.getOrNull(orangeCells.size-2)?.id ?: autoNextButton.id
+    danmakuSpeedSetting.nextFocusUpId=orangeCells.lastOrNull()?.id ?: license.id
     columns.forEachIndexed { column,items -> items.forEachIndexed { index,view ->
         view.nextFocusLeftId=(columns.getOrNull(column-1)?.getOrNull(index) ?: view).id
         view.nextFocusRightId=(columns.getOrNull(column+1)?.getOrNull(index) ?: view).id

@@ -77,7 +77,7 @@ internal fun MainActivity.playEpisode(index: Int,position: Long=0,autoplay: Bool
     val reuse=screen=="player" && player!=null && playerView!=null && !recovering && !playError
     library.setWatched(data.series.id,false)
     val selectedIndex=index.coerceIn(0,data.episodes.lastIndex)
-    val prefetched=if(position==0L && !recovering) preparedNext.take("${data.episodes[selectedIndex]}:${library.maxQuality}") else null
+    val prefetched=if(position==0L && !recovering) preparedNext.take("${data.episodes[selectedIndex]}:${playQuality()}") else null
     val claimedHttp=if(prefetched!=null) prefetchHttp.also { prefetchHttp=null } else null
     // 无感切集：同一个播放器复用、目标是下一集的开头、而且下一集**已经预热好**
     //（播放地址 / moov / 首批数据都在本地，见 [maybePrefetch]）。
@@ -192,8 +192,8 @@ internal fun MainActivity.playEpisode(index: Int,position: Long=0,autoplay: Bool
             return item
         }
         // 点击任一状态项直接打开竖向菜单的对应项目。
-        qualityOption=option("清晰度 ${library.maxQuality}P") { showPlaybackMenu(MENU_ROW_QUALITY) }
-        speedOption=option("倍速 ${PlaybackSpeed.label(library.playbackSpeed)}") { showPlaybackMenu(MENU_ROW_SPEED) }
+        qualityOption=option("清晰度 ${playQuality()}P") { showPlaybackMenu(MENU_ROW_QUALITY) }
+        speedOption=option("倍速 ${PlaybackSpeed.label(playSpeed())}") { showPlaybackMenu(MENU_ROW_SPEED) }
         frameOption=option("画面 ${library.frameMode.label}") { showPlaybackMenu(MENU_ROW_FRAME) }
         danmakuOption=option("弹幕 ${library.danmakuMode.label}") { showPlaybackMenu(MENU_ROW_DANMAKU) }
         sleepOption=option("定时 ${sleepTimer.label()}") { showPlaybackMenu(sleepRow(library.danmakuMode.showsStyle)) }
@@ -218,7 +218,7 @@ internal fun MainActivity.playEpisode(index: Int,position: Long=0,autoplay: Bool
     playbackText.text="正在获取播放地址…"; progressBar.progress=0f; progressBar.visibility=View.VISIBLE; hidePlaybackOverlay()
     controls.removeAllViews(); controls.visibility=View.GONE
     syncMediaSession()
-    val requestedId=data.episodes[episodeIndex]; val maxQuality=library.maxQuality; val ticket=generation
+    val requestedId=data.episodes[episodeIndex]; val maxQuality=playQuality(); val ticket=generation
     work({
         // 播放用的是**平台注册过的**设备身份（本机随机值已经不再参与签名）：
         // 注册还没落地时先补一次，免得取地址落到内置那份被拉黑的档案上。
@@ -235,7 +235,7 @@ internal fun MainActivity.playEpisode(index: Int,position: Long=0,autoplay: Bool
                 it.setHandleAudioBecomingNoisy(true)
             }
         }
-        p.setPlaybackSpeed(library.playbackSpeed)
+        p.setPlaybackSpeed(playSpeed())
         val listener=object: Player.Listener {
             internal fun active()=player===p && generation==ticket && p.currentMediaItem?.mediaId==requestedId
             override fun onPlaybackStateChanged(state: Int) {
@@ -248,12 +248,14 @@ internal fun MainActivity.playEpisode(index: Int,position: Long=0,autoplay: Bool
                     playbackReady=true
                     // 新源已经出画面：这时候再收上一集的视频与传输最稳，顺手把缓冲指示恢复。
                     retirePreviousEpisode(); restoreBufferingUi()
+                    if(firstReady) { skipIntro(p) }
                     if(firstReady) { firstReady=false; readySince=android.os.SystemClock.elapsedRealtime(); android.util.Log.i("HGTV","Playback ready episode=${episodeIndex+1} preloaded=${prefetched!=null} reused=$reuse elapsedMs=${readySince-playbackStarted}") }
                     if(hud.visibility==View.VISIBLE) updatePlaybackText()
                 }
                 syncMediaSession()
                 if(state==Player.STATE_ENDED) {
                     saveProgress(true)
+                    stats.finished(data.series.id,data.series.title)
                     if(sleepTimer.episodeEnded()) stopForSleep()
                     else if(foreground && requestedAutoplay && !pausedForLifecycle && library.autoNext && episodeIndex<data.episodes.lastIndex) playEpisode(episodeIndex+1)
                     else { requestedAutoplay=false; p.pause(); playbackText.text="本集已结束"; showHud() }

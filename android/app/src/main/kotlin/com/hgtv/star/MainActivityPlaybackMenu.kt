@@ -47,17 +47,18 @@ internal fun MainActivity.showPlaybackMenu(focusRow: Int=0,focusChoice: Int=-1) 
     val showsStyle=library.danmakuMode.showsStyle
     menu
         .addRow("清晰度",PlaybackQuality.options.mapIndexed { index,value ->
-            PlaybackMenu.Choice("${value}P",value==library.maxQuality) {
-                val changed=library.maxQuality!=value
-                library.maxQuality=value
+            // 橘子版：播放中改的清晰度只記在這部劇（設定頁的是全域預設）。
+            PlaybackMenu.Choice("${value}P",value==playQuality()) {
+                val changed=playQuality()!=value
+                rememberQuality(value)
                 // 换清晰度要重新解析播放地址，播放器复用后菜单需要按新状态重建。
                 if(changed) { playEpisode(episodeIndex,currentPosition(),player?.playWhenReady ?: requestedAutoplay); showPlaybackMenu(MENU_ROW_QUALITY,index) }
                 else { menu.select(MENU_ROW_QUALITY,index); updatePlaybackText() }
             }
         })
         .addRow("倍速",PlaybackSpeed.options.mapIndexed { index,value ->
-            PlaybackMenu.Choice(PlaybackSpeed.label(value),value==library.playbackSpeed) {
-                library.playbackSpeed=value; player?.setPlaybackSpeed(value)
+            PlaybackMenu.Choice(PlaybackSpeed.label(value),value==playSpeed()) {
+                rememberSpeed(value); player?.setPlaybackSpeed(value)
                 menu.select(MENU_ROW_SPEED,index); updatePlaybackText()
             }
         })
@@ -99,9 +100,11 @@ internal fun MainActivity.showPlaybackMenu(focusRow: Int=0,focusChoice: Int=-1) 
         .addSlider("弹幕透明度",DanmakuStyle.ALPHA_MIN,DanmakuStyle.ALPHA_MAX,DanmakuStyle.ALPHA_STEP,library.danmakuAlpha) { value ->
             library.danmakuAlpha=value; danmakuView?.textAlpha=value
         }
-    menu
-        .addRow("定时",sleepChoices(menu))
-        .wire()
+    menu.addRow("定时",sleepChoices(menu))
+    // 橘子版：片頭片尾（用目前位置設定，選完重建選單、焦點留在同一格）。
+    val skipRow=sleepRow(showsStyle)+1
+    menu.addRow("片头片尾",skipChoices { index -> showPlaybackMenu(skipRow,index) })
+    menu.wire()
     playbackMenu=menu
     panel=true
     // 设置菜单打开时收起底部控制条：参考界面里菜单就是这一层唯一的浮层。
@@ -138,12 +141,12 @@ internal fun MainActivity.showPlaybackMenu(focusRow: Int=0,focusChoice: Int=-1) 
 internal fun MainActivity.showSpeedPicker(anchor: TextView,inPlayer: Boolean=true) {
     if(speedDialog!=null) return
     val speeds=PlaybackSpeed.options
-    val selected=speeds.indexOf(library.playbackSpeed)
+    // 橘子版：播放中選的只記在這部劇；設定頁選的是全域預設。
+    val selected=speeds.indexOf(if(inPlayer) playSpeed() else library.playbackSpeed)
     // 与播放器菜单同一套选项按钮：整行左对齐的胶囊，当前值用强调色标出。
-    val picker=TvDialog(this,"全局默认倍速").choices(speeds.map(PlaybackSpeed::label),selected) { index ->
-        library.playbackSpeed=speeds[index]
-        if(inPlayer) player?.setPlaybackSpeed(library.playbackSpeed)
-        if(anchor.tag!="playback-settings") anchor.text=(if(inPlayer) "倍速 " else "默认倍速  ·  ")+PlaybackSpeed.label(library.playbackSpeed)
+    val picker=TvDialog(this,if(inPlayer) "这部剧的倍速" else "全局默认倍速").choices(speeds.map(PlaybackSpeed::label),selected) { index ->
+        if(inPlayer) { rememberSpeed(speeds[index]); player?.setPlaybackSpeed(speeds[index]) } else library.playbackSpeed=speeds[index]
+        if(anchor.tag!="playback-settings") anchor.text=(if(inPlayer) "倍速 " else "默认倍速  ·  ")+PlaybackSpeed.label(if(inPlayer) playSpeed() else library.playbackSpeed)
         if(inPlayer) updatePlaybackText()
     }
     picker.button("取消")
@@ -155,9 +158,10 @@ internal fun MainActivity.showSpeedPicker(anchor: TextView,inPlayer: Boolean=tru
 }
 internal fun MainActivity.showQualityPicker(anchor: TextView,inPlayer: Boolean) {
     val options=PlaybackQuality.options
-    val picker=TvDialog(this,"全局默认清晰度").choices(options.map { "${it}P" },options.indexOf(library.maxQuality)) { index ->
-        val target=options[index]; val changed=library.maxQuality!=target
-        library.maxQuality=target
+    val current=if(inPlayer) playQuality() else library.maxQuality
+    val picker=TvDialog(this,if(inPlayer) "这部剧的清晰度" else "全局默认清晰度").choices(options.map { "${it}P" },options.indexOf(current)) { index ->
+        val target=options[index]; val changed=current!=target
+        if(inPlayer) rememberQuality(target) else library.maxQuality=target
         if(anchor.tag!="playback-settings") anchor.text=(if(inPlayer) "清晰度 " else "默认清晰度  ·  ")+"${target}P"
         if(inPlayer && changed) playEpisode(episodeIndex,currentPosition(),player?.playWhenReady ?: requestedAutoplay)
     }

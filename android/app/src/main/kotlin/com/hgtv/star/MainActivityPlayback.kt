@@ -79,7 +79,7 @@ internal fun MainActivity.maybePrefetch() {
     val p=player ?: return; val data=detail ?: return
     if(!foreground || !p.isPlaying || !library.autoNext || playError || sleepStopped || episodeIndex>=data.episodes.lastIndex) return
     if(!PrefetchPolicy.nearEnd(p.currentPosition,p.duration,p.playbackParameters.speed)) return
-    val id=data.episodes[episodeIndex+1]; val quality=library.maxQuality; val key="$id:$quality"
+    val id=data.episodes[episodeIndex+1]; val quality=playQuality(); val key="$id:$quality"
     if(preparedNext.isFresh(key) || prefetchJob?.isDone==false) return
     val now=android.os.SystemClock.elapsedRealtime()
     if(readySince==0L || now-readySince<3000 || p.bufferedPosition-p.currentPosition<5000) return
@@ -134,7 +134,7 @@ internal fun MainActivity.playerFailure(problem: Throwable) {
     playbackText.text=if(decoding) "电视无法解码当前视频，可尝试更低清晰度。" else "播放失败，可重试或切换清晰度。"
     val actions=row(); controls.addView(actions)
     addButton(actions,"立即重试") { playEpisode(episodeIndex,retryPosition,retryAutoplay) }.requestFocus()
-    addButton(actions,"尝试 720P") { library.maxQuality=720; playEpisode(episodeIndex,retryPosition,retryAutoplay) }
+    addButton(actions,"尝试 720P") { rememberQuality(720); playEpisode(episodeIndex,retryPosition,retryAutoplay) }
     addButton(actions,"返回选集") { returnToDetail(true) }
     if(retryable && !sleepStopped) {
         addButton(controls,"停止自动重试") { cancelRecovery(); playbackText.text="自动重试已停止，观看位置已保留。" }
@@ -160,8 +160,8 @@ internal fun MainActivity.updatePlaybackText() {
     if(screen!="player") return
     // 播放键图标与选项行的当前值：爆米花把状态放在图标和选项文字里，不额外占一行。
     transportIcon?.setImageResource(if(player?.playWhenReady==true) R.drawable.ic_player_pause else R.drawable.ic_player_play)
-    qualityOption?.text="清晰度 "+if(quality.isBlank()) "${library.maxQuality}P" else quality
-    speedOption?.text="倍速 "+PlaybackSpeed.label(if(playbackReady) player?.playbackParameters?.speed ?: library.playbackSpeed else library.playbackSpeed)
+    qualityOption?.text="清晰度 "+if(quality.isBlank()) "${playQuality()}P" else quality
+    speedOption?.text="倍速 "+PlaybackSpeed.label(if(playbackReady) player?.playbackParameters?.speed ?: playSpeed() else playSpeed())
     frameOption?.text="画面模式 "+library.frameMode.label
     // 状态行只放显示方式：弹幕条数放在「设置 → 弹幕显示」那一行，
     // 播放界面的这一排已经够长，再加数字会被屏宽裁掉。
@@ -209,7 +209,7 @@ internal fun MainActivity.syncMediaSession() {
         p.isPlaying -> android.media.session.PlaybackState.STATE_PLAYING
         else -> android.media.session.PlaybackState.STATE_PAUSED
     }
-    mediaSession.update(data.series.title,episodeIndex,p?.duration?.coerceAtLeast(0) ?: 0,currentPosition(),library.playbackSpeed,state,episodeIndex>0,episodeIndex<data.episodes.lastIndex)
+    mediaSession.update(data.series.title,episodeIndex,p?.duration?.coerceAtLeast(0) ?: 0,currentPosition(),playSpeed(),state,episodeIndex>0,episodeIndex<data.episodes.lastIndex)
 }
 internal fun MainActivity.stopForSleep() {
     sleepStopped=true; requestedAutoplay=false; retryAutoplay=false; pausedForLifecycle=true

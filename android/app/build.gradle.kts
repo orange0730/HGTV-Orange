@@ -8,11 +8,11 @@ android {
     namespace = "com.hgtv.star"
     compileSdk = 36
     defaultConfig {
-        applicationId = "com.hgtv.star"
+        applicationId = "tw.orange.hgtv"
         minSdk = 26
         targetSdk = 36
-        versionCode = System.getenv("HGTV_VERSION_CODE")?.toInt() ?: 33
-        versionName = System.getenv("HGTV_VERSION_NAME") ?: "1.0.9"
+        versionCode = System.getenv("HGTV_VERSION_CODE")?.toInt() ?: 200
+        versionName = System.getenv("HGTV_VERSION_NAME") ?: "2.0.0"
     }
     buildFeatures { buildConfig = true }
     signingConfigs {

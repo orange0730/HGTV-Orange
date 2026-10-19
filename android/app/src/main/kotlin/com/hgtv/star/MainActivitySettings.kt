@@ -368,7 +368,7 @@ internal fun MainActivity.settings(parent: LinearLayout) {
     // 两列的末项按下都进弹幕栏（见上面的 columns 循环），这里不再单独指右半边。
     syncDanmakuStyleRows()
     navIcons().forEach { it.nextFocusDownId=qualityButton.id }
-    parent.addView(text("红果TV  /  ${BuildConfig.VERSION_NAME}    ·    收藏与进度保存在本机",12f,muted).apply { setPadding(dp(12),dp(20),0,dp(10)) })
+    parent.addView(text("红果TV 橘子版  /  ${BuildConfig.VERSION_NAME}    ·    收藏与进度保存在本机",12f,muted).apply { setPadding(dp(12),dp(20),0,dp(10)) })
     navEntry()?.requestFocus()
 }
 /**
@@ -394,12 +394,13 @@ internal fun MainActivity.showHint(message: String) {
  * 自 2026-10-06 起在上游基础上修改、上游著作权归其作者。改 `NOTICE.md` 时同步改这里。
  */
 internal fun MainActivity.licenseText(): String = listOf(
-    "红果TV ${BuildConfig.VERSION_NAME} · GPL-3.0-only",
+    "红果TV 橘子版 ${BuildConfig.VERSION_NAME} · GPL-3.0-only",
     "",
-    "源码与许可证：github.com/pan8664716/HGTV",
+    "源码与许可证：github.com/orange0730/HGTV-Orange",
     "  许可证全文见 LICENSE，第三方声明见 NOTICE.md",
     "",
-    "派生自 N3urda/hongguoTV（GPL-3.0），自 2026-10-06 起在上游基础上修改；",
+    "派生自 pan8664716/HGTV（GPL-3.0），自 2026-10-19 起由 orange0730 修改；",
+    "  pan8664716/HGTV 又派生自 N3urda/hongguoTV（GPL-3.0），",
     "  上游著作权归其作者，逐项改动见 NOTICE.md 与 docs/CHANGELOG.md。",
     "",
     "内容协议与加密处理移植自 drpys（commit 22261ad，GPL-3.0）。",
@@ -408,6 +409,7 @@ internal fun MainActivity.licenseText(): String = listOf(
     "  Kotlin / AndroidX Media3 / OkHttp / ZXing：Apache-2.0",
     "  Bouncy Castle / jsoup / Microsoft Fluent Emoji：MIT",
     "  desugar_jdk_libs：GPL-2.0 with Classpath Exception",
+    "  OpenCC 繁简转换词典：Apache-2.0",
     "",
     "本机记录（收藏 / 观看进度 / 设置）只保存在这台设备上，不上传。"
 ).joinToString("\n")

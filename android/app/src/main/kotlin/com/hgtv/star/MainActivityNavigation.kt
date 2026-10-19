@@ -171,7 +171,7 @@ internal fun MainActivity.pageTitle(): String = when {
     // 搜索页的导航栏里还挤着输入框与三个按钮，标题只留两个字给它们让宽度。
     tab==TAB_SEARCH -> "搜索"
     tab==TAB_SETTINGS -> "设置"
-    else -> "红果TV"
+    else -> "红果TV 橘子版"
 }
 /**
  * 当前标签对应的顶部图标入口。`nav` 是五个页面入口（搜索 / 分类 / 榜单 / 设置 / 个人信息），

@@ -22,10 +22,12 @@ else
   new_code=$((current_code + 1))
 fi
 
-sed -i '' "s/versionCode = System.getenv(\"HGTV_VERSION_CODE\")?\.toInt() ?: [0-9]*/versionCode = System.getenv(\"HGTV_VERSION_CODE\")?.toInt() ?: $new_code/" "$gradle_file"
-sed -i '' "s/versionName = System.getenv(\"HGTV_VERSION_NAME\") ?: \"[^\"]*\"/versionName = System.getenv(\"HGTV_VERSION_NAME\") ?: \"$new_name\"/" "$gradle_file"
+# 用「-i.bak 再删掉」而不是 `-i ''`：macOS（BSD sed）与 Windows Git Bash / Linux（GNU sed）都认得。
+sed -i.bak "s/versionCode = System.getenv(\"HGTV_VERSION_CODE\")?\.toInt() ?: [0-9]*/versionCode = System.getenv(\"HGTV_VERSION_CODE\")?.toInt() ?: $new_code/" "$gradle_file"
+sed -i.bak "s/versionName = System.getenv(\"HGTV_VERSION_NAME\") ?: \"[^\"]*\"/versionName = System.getenv(\"HGTV_VERSION_NAME\") ?: \"$new_name\"/" "$gradle_file"
+rm -f "$gradle_file.bak"
 
 echo "versionName $("$repo_dir/tools/version.sh" version) / versionCode $("$repo_dir/tools/version.sh" code)"
 echo "产物名：$("$repo_dir/tools/version.sh" apk)"
 echo
-echo "提交后推送 main，Release 工作流会打正式包并创建 tag v$new_name"
+echo "接着在 docs/CHANGELOG.md 写好「## $new_name：…」这一节，再用 tools/release.sh 发布 v$new_name"

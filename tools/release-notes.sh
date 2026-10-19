@@ -74,10 +74,11 @@ if [[ "$mode" == notes ]]; then
 fi
 
 {
-  printf '红果TV %s（versionCode %s）\n\n' "$version" "$code"
+  printf '紅果TV 橘子版 %s（versionCode %s）\n\n' "$version" "$code"
   printf '%s\n' "$section"
   printf '\n---\n\n'
-  printf '安装包：`HGTV_%s.apk`\n' "$version"
+  printf '安装包：`%s`\n' "$(HGTV_VERSION_NAME="$version" tools/version.sh apk)"
   printf '校验：`SHA256SUMS`（`sha256sum -c SHA256SUMS`）\n\n'
   printf '最低 Android 8.0 / API 26，沿用同一发布签名，可覆盖安装并保留本机记录。\n'
+  printf '本应用不是红果官方客户端，与平台无关联。源代码：https://github.com/orange0730/HGTV-Orange（GPL-3.0）\n'
 }

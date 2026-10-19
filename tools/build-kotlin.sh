@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 构建正式签名 APK。
 #
-# 产物命名：<ASCII 标识>_<版本号>.apk，例如 HGTV_1.0.0.apk
+# 产物命名：<ASCII 标识>-<版本号>.apk，例如 HGTV-orange-2.0.0.apk
 #（用 ASCII 是因为 GitHub Release 的附件名会剥掉中文）
 # 版本与名称从 tools/version.sh 读（真值在 android/app/build.gradle.kts）。
 #

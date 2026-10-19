@@ -5,12 +5,12 @@
 # 本地构建脚本与 GitHub Actions 都从这里读，避免两边各写一套 sed 之后对不上。
 #
 # 用法：
-#   tools/version.sh name     # 红果TV（显示名，进 APK 的 label）
-#   tools/version.sh slug     # HGTV（产物名用的 ASCII 标识）
-#   tools/version.sh version  # 1.0.0
-#   tools/version.sh code     # 24
+#   tools/version.sh name     # 紅果TV 橘子版（显示名，进 APK 的 label）
+#   tools/version.sh slug     # HGTV-orange（产物名用的 ASCII 标识）
+#   tools/version.sh version  # 2.0.0
+#   tools/version.sh code     # 200
 #   tools/version.sh min-sdk  # 26
-#   tools/version.sh apk      # HGTV_1.0.0.apk
+#   tools/version.sh apk      # HGTV-orange-2.0.0.apk（应用内更新只认这个命名，见 AppUpdate.APK）
 #
 # 产物名用 ASCII slug：GitHub Release 的附件名只保留 ASCII，
 # 中文会被平台剥掉（红果TV_1.0.0.apk 会变成 TV_1.0.0.apk），所以本地与 CI 统一用 slug。
@@ -19,8 +19,8 @@ repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # HGTV_GRADLE_FILE 可指向别处的同名文件（CI 里用它读上一个提交的版本做对比）
 gradle_file="${HGTV_GRADLE_FILE:-$repo_dir/android/app/build.gradle.kts}"
 
-name="红果TV"
-slug="HGTV"
+name="紅果TV 橘子版"
+slug="HGTV-orange"
 # 环境变量前缀不写死：历史提交里是 HONGGUOTV_*，现在是 HGTV_*，两种都能读
 version="${HGTV_VERSION_NAME:-$(sed -n 's/.*versionName = System.getenv("[A-Z_]*") ?: "\([^"]*\)".*/\1/p' "$gradle_file" | head -1)}"
 code="${HGTV_VERSION_CODE:-$(sed -n 's/.*versionCode = System.getenv("[A-Z_]*")?\.toInt() ?: \([0-9]*\).*/\1/p' "$gradle_file" | head -1)}"
@@ -34,6 +34,6 @@ case "${1:-apk}" in
   version) printf '%s\n' "$version" ;;
   code)    printf '%s\n' "$code" ;;
   min-sdk) printf '%s\n' "$min_sdk" ;;
-  apk)     printf '%s_%s.apk\n' "$slug" "$version" ;;
+  apk)     printf '%s-%s.apk\n' "$slug" "$version" ;;
   *) echo "用法：tools/version.sh [name|slug|version|code|min-sdk|apk]" >&2; exit 2 ;;
 esac

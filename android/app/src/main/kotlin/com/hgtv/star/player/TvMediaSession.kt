@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.hgtv.star.player
 
+import com.hgtv.star.tv.Zh
 import android.content.Context
 import android.media.MediaMetadata
 import android.media.session.MediaSession
@@ -25,7 +26,8 @@ class TvMediaSession(context: Context,onPlay: ()->Unit,onPause: ()->Unit,onSeek:
         val key="$title/$episode/$duration"
         if(metadataKey!=key) {
             metadataKey=key
-            session.setMetadata(MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,title).putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE,title)
+            val shown=Zh.ui(title)
+            session.setMetadata(MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,shown).putString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE,shown)
                 .putString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE,"第 ${episode+1} 集")
                 .putLong(MediaMetadata.METADATA_KEY_DURATION,duration).build())
         }

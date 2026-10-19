@@ -25,12 +25,14 @@ class PhoneSearchServer(
     private val onQuery: (String)->Unit,
     private val onExpired: ()->Unit = {},
     ttlMillis: Long = 300_000,
-    private val form: Form = Form.search
+    private val form: Form = Form.search,
+    /** 手機頁面的文字轉換（橘子版）：繁體模式傳 [ChineseText.toTraditional]，頁面就以繁體顯示。 */
+    private val translate: (String)->String = { it }
 ): Closeable {
     /** 表单文案与校验：[field] 是表单字段名，[maxLength] 是字符上限，[maxBytes] 是请求体上限。 */
     class Form(val title: String,val prompt: String,val field: String,val placeholder: String,val submit: String,val done: String,val maxLength: Int,val maxBytes: Int) {
         companion object {
-            val search=Form("在电视上搜索","输入剧名，电视会按当前选择的漫剧或短剧分类搜索。","query","输入剧名或关键词","发送到电视","已发送到电视",80,4096)
+            val search=Form("在电视上搜索","输入剧名或关键词，繁体、简体都可以，送出后电视马上开始搜索。","query","输入剧名或关键词","发送到电视","已发送到电视",80,4096)
             val sessionToken=Form("填写搜索登录态","粘贴 App 抓到的 x-tt-token（整段 Cookie 也可以）。电视只把它用在搜索请求上，不联网核对、不上传。","token","粘贴 x-tt-token","保存到电视","已保存到电视",4096,8192)
         }
     }
@@ -108,7 +110,7 @@ class PhoneSearchServer(
         finally { close(); onQuery(query) }
     }
     private fun respond(socket: Socket, code: Int, message: String) {
-        val body="""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>红果TV · ${form.title}</title><style>body{font:18px sans-serif;background:#10131b;color:#f4f5f8;max-width:500px;margin:40px auto;padding:20px}input,button{box-sizing:border-box;width:100%;font:inherit;padding:16px;margin:10px 0;border-radius:8px}button{background:#ff634c;color:white;border:0}p{line-height:1.6}</style></head><body>$message</body></html>""".toByteArray(Charsets.UTF_8)
+        val body=translate("""<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>红果TV 橘子版 · ${form.title}</title><style>body{font:18px sans-serif;background:#10131b;color:#f4f5f8;max-width:500px;margin:40px auto;padding:20px}input,button{box-sizing:border-box;width:100%;font:inherit;padding:16px;margin:10px 0;border-radius:8px}button{background:#ff634c;color:white;border:0}p{line-height:1.6}</style></head><body>$message</body></html>""").toByteArray(Charsets.UTF_8)
         val header="HTTP/1.1 $code Response\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: ${body.size}\r\nConnection: close\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'\r\n\r\n"
         socket.getOutputStream().apply { write(header.toByteArray(Charsets.US_ASCII)); write(body); flush() }
     }

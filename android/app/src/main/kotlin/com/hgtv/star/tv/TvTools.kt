@@ -54,6 +54,8 @@ class TvTools(private val activity: Activity) {
     private fun dp(value: Int)=(value*activity.resources.displayMetrics.density).toInt()
     /** 弹窗正文文字：与全站正文同一档字号与颜色，不再单独写一套白色 + 内边距。 */
     private fun label(value: String,size: Float=16f)=activity.tvText(value,size,TvStyle.textDim)
+    /** 手機頁面跟著介面語言走（橘子版）：繁體模式下整頁轉成繁體。 */
+    private val phonePage: (String)->String = { page -> if(Zh.traditional) com.hgtv.star.core.ChineseText.toTraditional(page) else page }
     private fun column()=LinearLayout(activity).apply { orientation=LinearLayout.VERTICAL }
     private fun open(next: TvDialog,anchor: View?) {
         dialog?.dismiss(); dialog=next
@@ -76,7 +78,7 @@ class TvTools(private val activity: Activity) {
         if(message.isBlank()) return
         val root=activity.window?.decorView as? android.view.ViewGroup ?: return
         clearToast()
-        val view=TextView(activity).apply {
+        val view=ZhTextView(activity).apply {
             text=message
             textSize=15f
             setTextColor(TvStyle.text)
@@ -187,7 +189,7 @@ class TvTools(private val activity: Activity) {
         open(next,anchor)
         worker.execute {
             try {
-                val session=PhoneSearchServer(address,{ query -> main.post { if(dialog===next) { next.dismiss(); submit(query) } } },{ main.post { if(dialog===next) { next.content.removeAllViews(); next.content.addView(label("二维码已过期，请关闭后重新打开。")) } } })
+                val session=PhoneSearchServer(address,{ query -> main.post { if(dialog===next) { next.dismiss(); submit(query) } } },{ main.post { if(dialog===next) { next.content.removeAllViews(); next.content.addView(label("二维码已过期，请关闭后重新打开。")) } } },translate=phonePage)
                 main.post {
                     if(dialog!==next) { session.close(); return@post }
                     phone=session; next.content.removeAllViews()
@@ -304,7 +306,7 @@ class TvTools(private val activity: Activity) {
         val band=dp(TvStyle.SOFT_BAND)
         val view=EditText(activity).apply {
             id=View.generateViewId()
-            hint="在此粘贴 sessionid，或整段 Cookie"
+            hint=Zh.ui("在此粘贴 sessionid，或整段 Cookie")
             // 字号比按钮正文大一档（20sp）：这一行是弹窗里唯一要读的东西，
             // 32 位十六进制串在小字下很难核对。
             textSize=SESSION_FIELD_TEXT
@@ -389,7 +391,7 @@ class TvTools(private val activity: Activity) {
                     confirm.button("取消") {}
                     confirm.button("合并恢复") { restore(data,restoreSettings) }
                     open(confirm,anchor)
-                } },{ main.post { if(dialog===next) { next.content.removeAllViews(); next.content.addView(label("二维码已过期，请关闭后重新打开。")) } } })
+                } },{ main.post { if(dialog===next) { next.content.removeAllViews(); next.content.addView(label("二维码已过期，请关闭后重新打开。")) } } },translate=phonePage)
                 main.post {
                     if(dialog!==next) { session.close(); return@post }
                     phone=session; next.content.removeAllViews()

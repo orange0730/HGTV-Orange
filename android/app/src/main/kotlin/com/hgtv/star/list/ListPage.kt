@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.hgtv.star.list
 
+import com.hgtv.star.tv.Zh
 import android.app.Activity
 import android.os.Bundle
 import android.os.Handler
@@ -400,7 +401,7 @@ internal fun MainActivity.showCatalog(load: Boolean=false,focusNav: Boolean=fals
                 TAB_HOME -> repository.homeFeed()
                 TAB_RANK -> mapOf(requestBoard to repository.rank(requestPage,requestBoard))
                 TAB_CATEGORY -> mapOf(requestBoard to repository.category(requestCategory,requestPage))
-                else -> mapOf(requestBoard to repository.search(requestQuery,requestPage))
+                else -> mapOf(requestBoard to repository.search(Zh.query(requestQuery),requestPage))
             }
         }, { result ->
             if(requestTab==TAB_HOME) {

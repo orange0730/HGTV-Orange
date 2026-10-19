@@ -23,6 +23,7 @@ import androidx.media3.ui.PlayerView
 import com.hgtv.star.core.*
 import java.util.concurrent.Executors
 import com.hgtv.star.tv.ButtonSize
+import com.hgtv.star.tv.Zh
 import com.hgtv.star.tv.SoftStyle
 import com.hgtv.star.tv.ToggleChip
 import com.hgtv.star.tv.TvStyle
@@ -45,7 +46,7 @@ internal fun MainActivity.searchBar(top: LinearLayout,requestFocus: Boolean) {
         // 提示跟着那么大的话一句话就被截断，只能显示半句；小一档之后整句都放得下。
         // `hint` 只接受 CharSequence，字号靠 AbsoluteSizeSpan 挂在片段上。
         id=View.generateViewId()
-        hint=android.text.SpannableString(SEARCH_HINT).apply {
+        hint=android.text.SpannableString(Zh.ui(SEARCH_HINT)).apply {
             setSpan(
                 android.text.style.AbsoluteSizeSpan(SEARCH_HINT_TEXT.toInt(),true),
                 0,length,android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -106,6 +107,14 @@ internal fun MainActivity.searchBar(top: LinearLayout,requestFocus: Boolean) {
     // 间距用 [TvStyle.GAP_TIGHT]：这两枚按钮与输入框是**一组**，彼此靠近。
     searchButton=addButton(top,"搜索",size=ButtonSize.COMPACT,gap=TvStyle.GAP_TIGHT) { search() }
         .apply { minimumWidth=dp(SEARCH_BUTTON_MIN_WIDTH) }
+    // 「手机输入」（橘子版加回来）：电视上产生一个一次性二维码，手机扫码后在浏览器里打字，
+    // 送出后电视直接搜索。二维码只在同一个局域网有效、用过一次或 5 分钟后就失效，
+    // 实现在 [com.hgtv.star.core.PhoneSearchServer]（随机 128 位地址、只收局域网连线、关窗即关）。
+    lateinit var phone: View
+    phone=addButton(top,"手机输入",size=ButtonSize.COMPACT,gap=TvStyle.GAP_TIGHT) {
+        tvTools.phoneInput(phone) { typed -> input.setText(typed); runSearch(typed) }
+    }.apply { minimumWidth=dp(SEARCH_BUTTON_MIN_WIDTH) }
+    searchPhoneButton=phone
     // 「历史」按钮去掉了：这一行原来挤着「输入框 + 搜索 + 历史」三件，
     // 把右边那排圆形入口挤得只剩一点宽度。搜索历史仍然可用——输入框为空时按「搜索」
     // 就会打开历史（见 [search] 与 [showSearchHistory]）。
@@ -138,6 +147,7 @@ internal fun MainActivity.wireHeadNavUp() {
     val up=navEntry()?.id ?: return
     searchInput?.nextFocusUpId=up
     searchButton?.nextFocusUpId=up
+    searchPhoneButton?.nextFocusUpId=up
     searchActions.forEach { it.nextFocusUpId=up }
 }
 /**
@@ -218,6 +228,7 @@ internal fun MainActivity.renderHintRow(items: List<String>) {
         gridCards().firstOrNull()?.let { card ->
             searchInput?.nextFocusDownId=card.id
             searchButton?.nextFocusDownId=card.id
+            searchPhoneButton?.nextFocusDownId=card.id
             searchActions.forEach { it.nextFocusDownId=card.id }
         }
         return
@@ -246,6 +257,7 @@ internal fun MainActivity.renderHintRow(items: List<String>) {
     val down=chips.first().id
     searchInput?.nextFocusDownId=down
     searchButton?.nextFocusDownId=down
+    searchPhoneButton?.nextFocusDownId=down
     searchActions.forEach { it.nextFocusDownId=down }
     // 这一行是异步铺出来的，铺好的那一刻栅格可能还没建（那时只能指向自己）；
     // 等这一帧布局跑完再补一次，把下键接到内容第一张卡上。

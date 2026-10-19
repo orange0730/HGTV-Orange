@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.hgtv.star.list
 
+import com.hgtv.star.tv.Zh
 import android.app.Activity
 import android.os.Bundle
 import android.os.Handler
@@ -162,7 +163,7 @@ internal fun MainActivity.requestNextPage(userInitiated: Boolean) {
         // 页头与已显示的剧集都不动（搜索结果按同一关键词继续取）。
         val result=runCatching {
             when {
-                requestTab==TAB_SEARCH && scope==null -> repository.search(requestQuery,next)
+                requestTab==TAB_SEARCH && scope==null -> repository.search(Zh.query(requestQuery),next)
                 requestTab==TAB_CATEGORY && scope==null -> repository.category(category,next)
                 else -> repository.rank(next,board)
             }
@@ -681,6 +682,7 @@ internal fun MainActivity.wireGridFocus(prev: View?,next: View?) {
     val hintDown=suggestButtons.firstOrNull()?.id ?: first
     searchInput?.nextFocusDownId=hintDown
     searchButton?.nextFocusDownId=hintDown
+    searchPhoneButton?.nextFocusDownId=hintDown
     searchActions.forEach { it.nextFocusDownId=hintDown }
     // 提示词 / 热搜芯片按下键进内容第一张卡。芯片是**渲染之后才有的**，
     // 渲染那一刻栅格可能还没铺好（那时它们只能指向自己），因此这里每次重排都补一次。

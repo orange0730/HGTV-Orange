@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.hgtv.star
 
+import com.hgtv.star.tv.Zh
 import android.app.Activity
 import android.os.Bundle
 import android.os.Handler
@@ -599,6 +600,8 @@ class MainActivity: Activity() {
     internal val categoryTagButtons=mutableMapOf<String,View>()
     internal var searchInput: View?=null
     internal var searchButton: View?=null
+    /** 搜尋列的「手機輸入」按鈕（橘子版加回來）：焦點出口與「搜尋」按鈕一致。 */
+    internal var searchPhoneButton: View?=null
     internal val searchActions=mutableListOf<View>()
     // —— 搜索提示词（联想词）——
     /**
@@ -687,6 +690,8 @@ class MainActivity: Activity() {
     // ---- 生命周期与系统回调：扩展成员不能 override，只能留在 Activity 本体里 ----
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
+        // 介面語言要在建任何文字控件之前定下來（橘子版）。
+        Zh.init(this)
         window.decorView.systemUiVisibility=View.SYSTEM_UI_FLAG_FULLSCREEN or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         // 主题要在建视图之前定下来：先落盘偏好 → 换色 → 丢掉柔光位图缓存（里面烤着上一套材质的投影）。
         // 窗口底色也跟着换，启动那一帧、页面切换的空档都不会闪出另一套材质。

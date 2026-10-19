@@ -34,7 +34,7 @@ internal fun Context.tvText(
     size: Float,
     color: Int = TvStyle.text,
     bold: Boolean = false
-): TextView = TextView(this).apply {
+): TextView = ZhTextView(this).apply {
     text = value
     textSize = size
     setTextColor(color)
@@ -266,7 +266,7 @@ internal open class TvButton(
      * 这一行因此用更小的内边距把文字宽度让出来，字号与高度不变。
      */
     private val pad: Int? = null
-) : TextView(context) {
+) : ZhTextView(context) {
     private var selected = false
 
     /**
@@ -302,7 +302,7 @@ internal open class TvButton(
 
     /** 就地改文案（「检查更新」→「正在检查…」这类）。 */
     fun setLabel(value: String) {
-        if (text.toString() != value) text = value
+        if (text.toString() != Zh.ui(value)) text = value
     }
 
     /** 选中态由外部数据改写后重画一次（播放器菜单的选项就是这样）。 */
@@ -458,7 +458,7 @@ internal class PosterCard(
     val status = context.tvText("", 12f, TvStyle.textDim)
     private val poster = FrameLayout(context)
     /** 右下角角标：名次 / 平台自己的角标 / 同系列的「第 N 季」/「正在看」。 */
-    private val badge = TextView(context)
+    private val badge = ZhTextView(context)
     /**
      * 右上角角标：这一部是**第几季**。
      *
@@ -467,7 +467,7 @@ internal class PosterCard(
      * 因此没有写季号的剧名按第 1 季标，让每张卡都能一眼读出季数。
      * 与右下角那枚共用一套字号、字重、压暗层与内边距，只是一左一右。
      */
-    private val season = TextView(context)
+    private val season = ZhTextView(context)
     /** 已播进度条：自绘，一张卡只占一个 View（原先的 track/fill/rest 是三个）。 */
     private val progress = PosterProgress(context)
     private var percent = -1
@@ -598,7 +598,7 @@ internal class PosterCard(
     }
 
     fun setStatus(value: String) {
-        if (status.text.toString() != value) status.text = value
+        if (status.text.toString() != Zh.ui(value)) status.text = value
     }
 
     fun setProgress(value: Int?) {
@@ -701,7 +701,7 @@ internal class EpisodeCell(
     label: String,
     private val current: Boolean,
     action: () -> Unit
-) : TextView(context) {
+) : ZhTextView(context) {
     private val dp = { value: Number -> context.tvDp(value) }
 
     init {

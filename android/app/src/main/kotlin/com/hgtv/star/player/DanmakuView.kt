@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 package com.hgtv.star.player
 
+import com.hgtv.star.tv.Zh
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -322,7 +323,14 @@ internal class DanmakuView(context: Context) : View(context),DanmakuEmojiStore.L
     private fun speedPx(pixelsPerSecond: Float)=pixelsPerSecond*speed.factor
 
     /** 一条弹幕的片段（切成「文字 + 表情」），同一条文案只切一次。 */
-    private fun partsOf(text: String): List<DanmakuPart> = partsCache.getOrPut(text) { DanmakuEmoji.parts(text) }
+    /**
+     * 切好的片段；繁體模式下每一段文字再轉成繁體（橘子版）。
+     * 一定要**先切再轉**：表情標籤（`[发呆]`）比對的是簡體名，先轉就認不出來了。
+     * 表情片段的 `asset` 不動，只有載不到圖、退回畫文字時才用得到它的 `text`。
+     */
+    private fun partsOf(text: String): List<DanmakuPart> = partsCache.getOrPut(text) {
+        DanmakuEmoji.parts(text).map { part -> part.copy(text = Zh.ui(part.text)) }
+    }
 
     /** 一段内容的宽度：文字按字体量，表情按图片的显示边长算（[EMOJI_SCALE] × 字号）。 */
     private fun measure(parts: List<DanmakuPart>,paint: Paint,emojiSize: Float): Float {

@@ -29,6 +29,7 @@ import com.hgtv.star.tv.TvButton
 import com.hgtv.star.tv.TvStyle
 import com.hgtv.star.tv.TvTheme
 import com.hgtv.star.tv.TvThemeStore
+import com.hgtv.star.tv.ZhTextView
 import com.hgtv.star.tv.focusOverflow
 import com.hgtv.star.list.showCatalog
 
@@ -72,7 +73,7 @@ internal fun MainActivity.softPanel(
     glow: Int = Color.TRANSPARENT,
     depth: Float = 1f
 ) = TvStyle.soft(this,fill,radius,band,style,ring,ringWidth,glow,depth)
-internal fun MainActivity.text(value: String,size: Float=16f,color: Int=white)=TextView(this).apply { text=value; textSize=size; setTextColor(color); includeFontPadding=false }
+internal fun MainActivity.text(value: String,size: Float=16f,color: Int=white)=ZhTextView(this).apply { text=value; textSize=size; setTextColor(color); includeFontPadding=false }
 internal fun MainActivity.column()=LinearLayout(this).apply { orientation=LinearLayout.VERTICAL; focusOverflow() }
 internal fun MainActivity.row()=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; focusOverflow() }
 /**

@@ -93,7 +93,7 @@ internal fun MainActivity.releaseCatalogViews() {
     homeScreen=null; catalogScroll=null
     nav.clear(); boardButtons.clear(); accountButtons.clear(); profileHeadRow=null
     categoryGroupButtons.clear(); categoryTagButtons.clear()
-    searchInput=null; searchButton=null; searchActions.clear()
+    searchInput=null; searchButton=null; searchPhoneButton=null; searchActions.clear()
     // 提示词那一行连同在途的请求一起作废：它属于上一页的输入框，换页后不该再往新页面里塞。
     suggestRun.getAndSet(null)?.let { main.removeCallbacks(it) }
     suggestJob?.cancel(true); suggestJob=null
